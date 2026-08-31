@@ -42,6 +42,18 @@ module InstructionMemory(Address, Instruction);
 
     output reg [31:0] Instruction;    // Instruction at memory location Address
     
+    reg [31:0] Memory [0:127];
+
+    integer i;
+    
+    initial begin
+        for (i = 0; i < 128; i = i + 1)
+            Memory[i] = i * 3;
+    end
+
+    always @(*) begin
+        Instruction = Memory[Address[8:2]];
+    end
     /* Please fill in the implementation here */
 
 endmodule
