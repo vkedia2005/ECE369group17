@@ -19,9 +19,25 @@ module InstructionMemory_tb();
 	);
 
 	initial begin
-	
-    /* Please fill in the implementation here... */
-	
+
+   Address = 32'd0;
+        #10;
+
+        Address = 32'd4;
+        #10;
+
+        Address = 32'd8;
+        #10;
+
+        Address = 32'd12;
+        #10;
+
+        Address = 32'd6;
+        #10;
+
+        Address = 32'd508;
+        #10;
+        	
 	end
 
 endmodule

@@ -19,8 +19,15 @@ module PCAdder_tb();
     );
 
 	initial begin
-	
-    /* Please fill in the implementation here... */
+    
+    PCResult <=  0;
+
+    #100 
+    PCResult <=  31;
+
+    #100
+    
+    $display("PCR = %d,PCADD = %d",PCResult,PCAddResult);
 	
 	end
 
