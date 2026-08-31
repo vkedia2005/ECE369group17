@@ -54,6 +54,5 @@ module InstructionMemory(Address, Instruction);
     always @(*) begin
         Instruction = Memory[Address[8:2]];
     end
-    /* Please fill in the implementation here */
 
 endmodule
