@@ -46,5 +46,31 @@ module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, ReadData);
     output reg[31:0] ReadData; // Contents of memory location at Address
 
     /* Please fill in the implementation here */
+    // Declare a 1K (1024) array of 32-bit words
+    reg [31:0] memory [0:1023];
+    
+    // Initialize memory to 0 for simulation purposes
+    integer i;
+    initial begin
+        for (i = 0; i < 1024; i = i + 1) begin
+            memory[i] = 32'd0;
+        end
+    end
+
+    // Synchronous Write: Happens on the positive clock edge
+    always @(posedge Clk) begin
+        if (MemWrite == 1'b1) begin
+            memory[Address[11:2]] <= WriteData;
+        end
+    end
+
+    // Asynchronous Read: Happens immediately when inputs change
+    always @(*) begin
+        if (MemRead == 1'b1) begin
+            ReadData = memory[Address[11:2]];
+        end else begin
+            ReadData = 32'h00000000;
+        end
+    end
 
 endmodule

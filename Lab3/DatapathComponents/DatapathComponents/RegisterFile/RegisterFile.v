@@ -51,5 +51,42 @@
 module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegWrite, Clk, ReadData1, ReadData2);
 
 	/* Please fill in the implementation here... */
+	input [4:0] ReadRegister1;
+    input [4:0] ReadRegister2;
+    input [4:0] WriteRegister;
+    input [31:0] WriteData;
+    input RegWrite;
+    input Clk;
+
+    // Outputs
+    output reg [31:0] ReadData1;
+    output reg [31:0] ReadData2;
+
+    /* Please fill in the implementation here... */
+    
+    // 32 registers, each 32 bits wide
+    reg [31:0] reg_file [0:31]; 
+    
+    // Initialize all registers to 0 for simulation
+    integer i;
+    initial begin
+        for (i = 0; i < 32; i = i + 1) begin
+            reg_file[i] <= 32'd0;
+        end
+    end
+
+    // Write operation: Rising edge of the clock
+    always @(posedge Clk) begin
+        // Only write if RegWrite is high AND the target is NOT Register 0
+        if (RegWrite == 1'b1 && WriteRegister != 5'd0) begin
+            reg_file[WriteRegister] <= WriteData;
+        end
+    end
+
+    // Read operation: Falling edge of the clock
+    always @(negedge Clk) begin
+        ReadData1 <= reg_file[ReadRegister1];
+        ReadData2 <= reg_file[ReadRegister2];
+    end
 
 endmodule
