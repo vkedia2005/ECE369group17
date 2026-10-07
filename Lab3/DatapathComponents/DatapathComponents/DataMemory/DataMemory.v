@@ -2,74 +2,113 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // ECE369 - Computer Architecture
-// 
-// Module - data_memory.v
-// Description - 32-Bit wide data memory.
+//
+// Module - DataMemory.v
+// Description - 1K x 32-bit data memory with word, halfword and byte access.
 //
 // INPUTS:-
-// Address: 32-Bit address input port.
-// WriteData: 32-Bit input port.
-// Clk: 1-Bit Input clock signal.
-// MemWrite: 1-Bit control signal for memory write.
-// MemRead: 1-Bit control signal for memory read.
+// Address:   32-bit byte address. Address[11:2] selects the word,
+//            Address[1:0] selects the byte/half inside the word.
+// WriteData: 32-bit data to store (only low 16 bits used for sh, low 8 for sb).
+// Clk:       Clock. Writes happen on the rising edge.
+// MemWrite:  1 = store.
+// MemRead:   1 = load (otherwise ReadData = 0).
+// MemSize:   00 = word (lw/sw), 01 = half (lh/sh), 10 = byte (lb/sb).
 //
 // OUTPUTS:-
-// ReadData: 32-Bit registered output port.
+// ReadData:  32-bit load result. Byte/half loads are sign-extended.
 //
-// FUNCTIONALITY:-
-// Design the above memory similar to the 'RegisterFile' model in the previous 
-// assignment.  Create a 1K memory, for which we need 10 bits.  In order to 
-// implement byte addressing, we will use bits Address[11:2] to index the 
-// memory location. The 'WriteData' value is written into the address 
-// corresponding to Address[11:2] in the positive clock edge if 'MemWrite' 
-// signal is 1. 'ReadData' is the value of memory location Address[11:2] if 
-// 'MemRead' is 1, otherwise, it is 0x00000000. The reading of memory is not 
-// clocked.
-//
-// you need to declare a 2d array. in this case we need an array of 1024 (1K)  
-// 32-bit elements for the memory.   
-// for example,  to declare an array of 256 32-bit elements, declaration is: reg[31:0] memory[0:255]
-// if i continue with the same declaration, we need 8 bits to index to one of 256 elements. 
-// however , address port for the data memory is 32 bits. from those 32 bits, least significant 2 
-// bits help us index to one of the 4 bytes within a single word. therefore we only need bits [9-2] 
-// of the "Address" input to index any of the 256 words. 
+// Byte order: little-endian (byte at Address[1:0]=00 is bits [7:0]).
+// Accesses are assumed aligned (lh/sh at even addresses, lw/sw at multiples of 4).
 ////////////////////////////////////////////////////////////////////////////////
 
-module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, ReadData); 
+module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, MemSize, ReadData);
 
-    input [31:0] Address; 	// Input Address 
-    input [31:0] WriteData; // Data that needs to be written into the address 
-    input Clk;
-    input MemWrite; 		// Control signal for memory write 
-    input MemRead; 			// Control signal for memory read 
+    input  [31:0] Address;
+    input  [31:0] WriteData;
+    input         Clk;
+    input         MemWrite;
+    input         MemRead;
+    input  [1:0]  MemSize;
 
-    output reg[31:0] ReadData; // Contents of memory location at Address
+    output reg [31:0] ReadData;
 
-    /* Please fill in the implementation here */
-    // Declare a 1K (1024) array of 32-bit words
+    // size encoding
+    localparam SIZE_WORD = 2'b00;
+    localparam SIZE_HALF = 2'b01;
+    localparam SIZE_BYTE = 2'b10;
+
+    // 1K words of 32 bits
     reg [31:0] memory [0:1023];
-    
-    // Initialize memory to 0 for simulation purposes
+
+    // Zero everything, then load contents from file
     integer i;
     initial begin
-        for (i = 0; i < 1024; i = i + 1) begin
+        for (i = 0; i < 1024; i = i + 1)
             memory[i] = 32'd0;
-        end
+        $readmemh("data_memory.mem", memory);
     end
 
-    // Synchronous Write: Happens on the positive clock edge
+    // ---------------- WRITE (synchronous) ----------------
     always @(posedge Clk) begin
-        if (MemWrite == 1'b1) begin
-            memory[Address[11:2]] <= WriteData;
+        if (MemWrite) begin
+            case (MemSize)
+                SIZE_WORD: memory[Address[11:2]] <= WriteData;
+
+                SIZE_HALF: begin
+                    if (Address[1])
+                        memory[Address[11:2]][31:16] <= WriteData[15:0];
+                    else
+                        memory[Address[11:2]][15:0]  <= WriteData[15:0];
+                end
+
+                SIZE_BYTE: begin
+                    case (Address[1:0])
+                        2'b00: memory[Address[11:2]][7:0]   <= WriteData[7:0];
+                        2'b01: memory[Address[11:2]][15:8]  <= WriteData[7:0];
+                        2'b10: memory[Address[11:2]][23:16] <= WriteData[7:0];
+                        2'b11: memory[Address[11:2]][31:24] <= WriteData[7:0];
+                    endcase
+                end
+
+                default: ; // no write for undefined size
+            endcase
         end
     end
 
-    // Asynchronous Read: Happens immediately when inputs change
+    // ---------------- READ (combinational) ----------------
+    reg [31:0] word;
+    reg [15:0] half;
+    reg [7:0]  byte_val;
+
     always @(*) begin
-        if (MemRead == 1'b1) begin
-            ReadData = memory[Address[11:2]];
-        end else begin
-            ReadData = 32'h00000000;
+        // defaults so no latches are inferred
+        word     = memory[Address[11:2]];
+        half     = 16'd0;
+        byte_val = 8'd0;
+        ReadData = 32'd0;
+
+        if (MemRead) begin
+            case (MemSize)
+                SIZE_WORD: ReadData = word;
+
+                SIZE_HALF: begin
+                    half     = Address[1] ? word[31:16] : word[15:0];
+                    ReadData = {{16{half[15]}}, half};       // sign-extend
+                end
+
+                SIZE_BYTE: begin
+                    case (Address[1:0])
+                        2'b00: byte_val = word[7:0];
+                        2'b01: byte_val = word[15:8];
+                        2'b10: byte_val = word[23:16];
+                        2'b11: byte_val = word[31:24];
+                    endcase
+                    ReadData = {{24{byte_val[7]}}, byte_val}; // sign-extend
+                end
+
+                default: ReadData = 32'd0;
+            endcase
         end
     end
 
