@@ -5,15 +5,13 @@
 // Module - SignExtension.v
 // Description - Sign extension module.
 ////////////////////////////////////////////////////////////////////////////////
-module SignExtension(in, out);
+module SignExtension(
+    input  [15:0] in,
+    input         ExtOp,
+    output [31:0] out
+);
 
-    /* A 16-Bit input word */
-    input [15:0] in;
-    
-    /* A 32-Bit output word */
-    output [31:0] out;
-    
-    /* Fill in the implementation here ... */
-    assign out = { {16{in[15]}}, in };
+    // If ExtOp is 1, replicate sign bit in[15]. If ExtOp is 0, pad with 16 zeros.
+    assign out = (ExtOp == 1'b1) ? { {16{in[15]}}, in } : { 16'd0, in };
 
 endmodule
