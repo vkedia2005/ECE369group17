@@ -141,7 +141,7 @@ module Top_Datapath(
 
     ProgramCounter PCReg (
         .Clk(Clk),
-        .Reset(Rst),
+        .Rst(Rst),
         .NextPC(NextPC),
         .PC(IF_PC)
     );
