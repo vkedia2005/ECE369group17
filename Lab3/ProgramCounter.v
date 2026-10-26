@@ -2,13 +2,13 @@
 
 module ProgramCounter(
     input Clk,
-    input Reset,
+    input Rst,
     input [31:0] NextPC,
     output reg [31:0] PC
 );
 
-    always @(posedge Clk or posedge Reset) begin
-        if (Reset) begin
+    always @(posedge Clk or posedge Rst) begin
+        if (Rst) begin
             PC <= 32'd0;
         end else begin
             PC <= NextPC;

@@ -2,57 +2,6 @@
 
 module EX_MEM_Reg(
     input         Clk,
-    input         Reset,
-    
-    // Control Signals (WB Stage)
-    input         RegWrite_in,
-    input  [1:0]  MemToReg_in,
-    
-    // Control Signals (MEM Stage)
-    input         MemRead_in,
-    input         MemWrite_in,
-    input  [1:0]  MemSize_in,
-    input         Branch_in,
-    input         BranchOnZero_in,
-    
-    // Data Signals
-    input  [31:0] PCPlus4_in,
-    input  [31:0] BranchTarget_in,
-    input         Zero_in,
-    input  [31:0] ALUResult_in,
-    input  [31:0] WriteData_in,    // ReadData2 from ID/EX
-    input  [4:0]  WriteReg_in,     // Selected destination register (rt, rd, or $31)
-
-    // Outputs to MEM Stage
-    output reg        RegWrite_out,
-    output reg [1:0]  MemToReg_out,
-    output reg        MemRead_out,
-    output reg        MemWrite_out,
-    output reg [1:0]  MemSize_out,
-    output reg        Branch_out,
-    output reg        BranchOnZero_out,
-    output reg [31:0] PCPlus4_out,
-    output reg [31:0] BranchTarget_out,
-    output reg        Zero_out,
-    output reg [31:0] ALUResult_out,
-    output reg [31:0] WriteData_out,
-    output reg [4:0]  WriteReg_out
-);
-
-    alwaysTo complete the **MEM** and **WB** stages for your pipelined datapath, you need the two final pipeline registers (`EX_MEM_Reg.v` and `MEM_WB_Reg.v`), a 3-to-1 multiplexer for the `MemToReg` signal (`Mux32Bit3To1.v`), and the top-level structural wiring to connect your `DataMemory` and `RegisterFile`.
-
-Because your `Controller.v` outputs a 2-bit `MemToReg` signal to support `jal` (`00` = ALU result, `01` = memory data, `10` = `PC+4`) and a `BranchOnZero` signal to distinguish between `beq` (`Zero == 1`) and `bne`/`bgtz`/`blez`/`bgez`/`bltz` (`Zero == 0`)[cite: 11], the pipeline registers and branch resolution logic below are tailored specifically to match your controller's exact signals[cite: 11].
-
----
-
-### 1. EX/MEM Pipeline Register (`EX_MEM_Reg.v`)
-This register sits at the boundary between the Execute and Memory stages. It captures the control signals needed by MEM and WB, the calculated branch/jump targets, the ALU outputs, and the selected 5-bit destination register (`WriteReg`).
-
-```verilog
-`timescale 1ns / 1ps
-
-module EX_MEM_Reg(
-    input         Clk,
     input         Rst,
 
     // WB Control Signals
