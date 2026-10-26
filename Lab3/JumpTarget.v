@@ -1,3 +1,5 @@
+~timescale 1ns / 1ps
+
 module JumpTarget(
     input  [31:0] PCPlus4,
     input  [25:0] Target,
