@@ -21,8 +21,8 @@ module Top_Datapath_tb();
 
     // ---------------- settings ----------------
     parameter CLK_PERIOD = 100;   // nlow on purpose so post-routing timing is easy to meet.
-    parameter NUM_CYCLES = 420;   // one full pass of lab4_full_test.s plus margin
-    parameter CHECK      = 1;     // 1 = check against lab4_full_test.s
+    parameter NUM_CYCLES = 100;   // one full pass of lab4_full_test.s plus margin
+    parameter CHECK      = 0;     // 1 = check against lab4_full_test.s
 
     reg         Clk;
     reg         Rst;

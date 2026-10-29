@@ -6,11 +6,15 @@ module InstructionMemory(
 );
 
     reg [31:0] memory [0:1023];
-
+    integer i;
     initial begin
+    for (i = 0; i < 1024; i = i + 1)
+            memory[i] = 32'h00000000;            // fill with nops first
         $readmemh("instruction_memory.mem", memory);
     end
-
+    
+    
+    
     // Address[11:2] extracts the 10-bit word index
     assign Instruction = memory[Address[11:2]];
 
