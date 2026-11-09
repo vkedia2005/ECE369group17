@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module HazardDetectionUnit #(
-    parameter ENABLE_WB_STALL = 1 // Set to 1 if RegisterFile.v is unchanged; set to 0 if using RegisterFile WB bypass
+    parameter ENABLE_WB_STALL = 0 // Set to 1 if RegisterFile.v is unchanged; set to 0 if using RegisterFile WB bypass
 )(
     input  [5:0] Opcode_ID,
     input  [5:0] Funct_ID,

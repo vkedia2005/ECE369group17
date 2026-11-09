@@ -1,61 +1,74 @@
-20080000	//	loop:	addi	$t0, $zero, 0 ->	loop:	addi	$t0, $zero, 0
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-20090006	//		addi	$t1, $zero, 6 ->		addi	$t1, $zero, 6
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-200a000a	//		addi	$t2, $zero, 10 ->		addi	$t2, $zero, 10
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-ad090000	//		sw	$t1, 0($t0) ->		sw	$t1, 0($t0)
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-ad0a0004	//		sw	$t2, 4($t0) ->		sw	$t2, 4($t0)
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-8d100000	//		lw	$s0, 0($t0) ->		lw	$s0, 0($t0)
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-8d110004	//		lw	$s1, 4($t0) ->		lw	$s1, 4($t0)
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-02305822	//		sub	$t3, $s1, $s0 ->		sub	$t3, $s1, $s0
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-000b60c0	//		sll	$t4, $t3, 3 ->		sll	$t4, $t3, 3
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-000c6882	//		srl	$t5, $t4, 2 ->		srl	$t5, $t4, 2
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-00000000	//		nop ->		nop
-08000000	//		j	loop ->		j	loop
+20080005	// PC=0    main: addi $t0, $zero, 5
+2109fff4	// PC=4    addi $t1, $t0, -12
+01095020	// PC=8    add  $t2, $t0, $t1
+010a5822	// PC=12   sub  $t3, $t0, $t2
+71696002	// PC=16   mul  $t4, $t3, $t1
+018b6824	// PC=20   and  $t5, $t4, $t3
+01a97025	// PC=24   or   $t6, $t5, $t1
+01cc7826	// PC=28   xor  $t7, $t6, $t4
+01ea8827	// PC=32   nor  $s1, $t7, $t2
+0189902a	// PC=36   slt  $s2, $t4, $t1
+012c982a	// PC=40   slt  $s3, $t1, $t4
+000fa100	// PC=44   sll  $s4, $t7, 4
+0009af02	// PC=48   srl  $s5, $t1, 28
+2936fffa	// PC=52   slti $s6, $t1, -6
+3137ff0f	// PC=56   andi $s7, $t1, 65295
+35788000	// PC=60   ori  $t8, $t3, 32768
+3b1900ff	// PC=64   xori $t9, $t8, 255
+20100040	// PC=68   addi $s0, $zero, 64
+ae0c0000	// PC=72   sw   $t4, 0($s0)
+ae190004	// PC=76   sw   $t9, 4($s0)
+8e040000	// PC=80   lw   $a0, 0($s0)
+00842820	// PC=84   add  $a1, $a0, $a0
+a6050008	// PC=88   sh   $a1, 8($s0)
+a211000a	// PC=92   sb   $s1, 10($s0)
+86060008	// PC=96   lh   $a2, 8($s0)
+8207000a	// PC=100  lb   $a3, 10($s0)
+82020004	// PC=104  lb   $v0, 4($s0)
+86030004	// PC=108  lh   $v1, 4($s0)
+8e080008	// PC=112  lw   $t0, 8($s0)
+2009fffd	// PC=116  addi $t1, $zero, -3
+05200001	// PC=120  bltz $t1, L1
+20190063	// PC=124  addi $t9, $zero, 99
+05210027	// PC=128  L1: bgez $t1, FAIL
+1d200026	// PC=132  bgtz $t1, FAIL
+19200001	// PC=136  blez $t1, L2
+20190063	// PC=140  addi $t9, $zero, 99
+200a0004	// PC=144  L2: addi $t2, $zero, 4
+1d400001	// PC=148  bgtz $t2, L3
+20190063	// PC=152  addi $t9, $zero, 99
+19400020	// PC=156  L3: blez $t2, FAIL
+0540001f	// PC=160  bltz $t2, FAIL
+05410001	// PC=164  bgez $t2, L4
+20190063	// PC=168  addi $t9, $zero, 99
+04010001	// PC=172  L4: bgez $zero, L5
+20190063	// PC=176  addi $t9, $zero, 99
+8e0b0000	// PC=180  L5: lw   $t3, 0($s0)
+116c0001	// PC=184  beq  $t3, $t4, L6
+20190063	// PC=188  addi $t9, $zero, 99
+156c0017	// PC=192  L6: bne  $t3, $t4, FAIL
+11600016	// PC=196  beq  $t3, $zero, FAIL
+15600001	// PC=200  bne  $t3, $zero, L7
+20190063	// PC=204  addi $t9, $zero, 99
+08000039	// PC=208  L7: j    FWD
+20190063	// PC=212  addi $t9, $zero, 99
+22d60064	// PC=216  BACK: addi $s6, $s6, 100
+0800003c	// PC=220  j    AFTER
+20190063	// PC=224  addi $t9, $zero, 99
+22b50001	// PC=228  FWD: addi $s5, $s5, 1
+16a0fffb	// PC=232  bne  $s5, $zero, BACK
+20190063	// PC=236  addi $t9, $zero, 99
+0c000040	// PC=240  AFTER: jal  FUNC
+20570003	// PC=244  addi $s7, $v0, 3
+08000043	// PC=248  j    END
+20190063	// PC=252  addi $t9, $zero, 99
+20020014	// PC=256  FUNC: addi $v0, $zero, 20
+03e00008	// PC=260  jr   $ra
+20190063	// PC=264  addi $t9, $zero, 99
+201f0118	// PC=268  END: addi $ra, $zero, 280
+03e00008	// PC=272  jr   $ra
+20190063	// PC=276  addi $t9, $zero, 99
+08000000	// PC=280  DONE: j    main
+20190063	// PC=284  addi $t9, $zero, 99
+20190063	// PC=288  FAIL: addi $t9, $zero, 99
+08000048	// PC=292  j    FAIL

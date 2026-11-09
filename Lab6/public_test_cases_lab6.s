@@ -6,8 +6,8 @@ DATA:   .word 1, 2, 3, 4, 5, 6, 7
 
     # Load values
 main:
-    la   $a0, DATA  # use for qtspim only
-	#addi $a0, $zero, 0 # use for MIPS helper
+  #  la   $a0, DATA  # use for qtspim only
+	  addi $a0, $zero, 0 # use for MIPS helper
     addi $t0, $zero, 8  # 0x8
     addi $t1, $zero, 9  # 0x9
     addi $t2, $zero, 10  # 0xA

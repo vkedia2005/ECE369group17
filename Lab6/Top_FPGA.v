@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
 ////////////////////////////////////////////////////////////////////////////////
-// ECE369A - Computer Organization (Lab 5 FPGA Top-Level Wrapper)
+// ECE369A - Computer Organization (Lab 6)
 // Group 17
-// Percent Effort: [Member 1]: XX%, [Member 2]: XX%, [Member 3]: XX%
+// Percent Effort: [Noah Kramer]: 33%, [Luke Mccullough]: 33%, [Vasu Kedia]: 33%
 //
 // Module - Top_FPGA.v
 // Description - Connects ClkDiv, Top_Datapath, and Two4DigitDisplay to run the
