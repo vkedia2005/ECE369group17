@@ -4,10 +4,10 @@
 // ECE369 - Computer Architecture
 //
 // Module - DataMemory.v
-// Description - 1K x 32-bit data memory with word, halfword and byte access.
+// Description - 4K x 32-bit data memory with word, halfword and byte access.
 //
 // INPUTS:-
-// Address:   32-bit byte address. Address[11:2] selects the word,
+// Address:   32-bit byte address. Address[13:2] selects the word,
 //            Address[1:0] selects the byte/half inside the word.
 // WriteData: 32-bit data to store (only low 16 bits used for sh, low 8 for sb).
 // Clk:       Clock. Writes happen on the rising edge.
@@ -39,12 +39,12 @@ module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, MemSize, ReadData)
     localparam SIZE_BYTE = 2'b10;
 
     // 1K words of 32 bits
-    reg [31:0] memory [0:1023];
+    reg [31:0] memory [0:4095];   // 4096 words (16 KB) for the Lab 7 vbsme data
 
     // Zero everything, then load contents from file
     integer i;
     initial begin
-        for (i = 0; i < 1024; i = i + 1)
+        for (i = 0; i < 4096; i = i + 1)
             memory[i] = 32'd0;
         $readmemh("data_memory.mem", memory);
     end
@@ -53,21 +53,21 @@ module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, MemSize, ReadData)
     always @(posedge Clk) begin
         if (MemWrite) begin
             case (MemSize)
-                SIZE_WORD: memory[Address[11:2]] <= WriteData;
+                SIZE_WORD: memory[Address[13:2]] <= WriteData;
 
                 SIZE_HALF: begin
                     if (Address[1])
-                        memory[Address[11:2]][31:16] <= WriteData[15:0];
+                        memory[Address[13:2]][31:16] <= WriteData[15:0];
                     else
-                        memory[Address[11:2]][15:0]  <= WriteData[15:0];
+                        memory[Address[13:2]][15:0]  <= WriteData[15:0];
                 end
 
                 SIZE_BYTE: begin
                     case (Address[1:0])
-                        2'b00: memory[Address[11:2]][7:0]   <= WriteData[7:0];
-                        2'b01: memory[Address[11:2]][15:8]  <= WriteData[7:0];
-                        2'b10: memory[Address[11:2]][23:16] <= WriteData[7:0];
-                        2'b11: memory[Address[11:2]][31:24] <= WriteData[7:0];
+                        2'b00: memory[Address[13:2]][7:0]   <= WriteData[7:0];
+                        2'b01: memory[Address[13:2]][15:8]  <= WriteData[7:0];
+                        2'b10: memory[Address[13:2]][23:16] <= WriteData[7:0];
+                        2'b11: memory[Address[13:2]][31:24] <= WriteData[7:0];
                     endcase
                 end
 
@@ -83,7 +83,7 @@ module DataMemory(Address, WriteData, Clk, MemWrite, MemRead, MemSize, ReadData)
 
     always @(*) begin
         // defaults so no latches are inferred
-        word     = memory[Address[11:2]];
+        word     = memory[Address[13:2]];
         half     = 16'd0;
         byte_val = 8'd0;
         ReadData = 32'd0;

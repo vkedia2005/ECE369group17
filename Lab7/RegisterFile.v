@@ -48,7 +48,7 @@
 // to allow for data multiplexing and setup time.
 ////////////////////////////////////////////////////////////////////////////////
 
-module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegWrite, Clk, ReadData1, ReadData2);
+module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegWrite, Clk, ReadData1, ReadData2, V0, V1);
 
 	/* Please fill in the implementation here... */
 	input [4:0] ReadRegister1;
@@ -61,6 +61,8 @@ module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegW
     // Outputs
     output reg [31:0] ReadData1;
     output reg [31:0] ReadData2;
+    output [31:0] V0;     // $v0 ($2): row of the current minimum SAD (Lab 7 display)
+    output [31:0] V1;     // $v1 ($3): col of the current minimum SAD (Lab 7 display)
 
     /* Please fill in the implementation here... */
     
@@ -71,7 +73,7 @@ module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegW
     integer i;
     initial begin
         for (i = 0; i < 32; i = i + 1) begin
-            reg_file[i] <= 32'd0;
+            reg_file[i] = 32'd0;
         end
     end
 
@@ -95,5 +97,9 @@ module RegisterFile(ReadRegister1, ReadRegister2, WriteRegister, WriteData, RegW
         else
             ReadData2 <= reg_file[ReadRegister2];
     end
+
+    // Lab 7: $v0/$v1 straight to the top level for the 7-segment display
+    assign V0 = reg_file[2];
+    assign V1 = reg_file[3];
 
 endmodule

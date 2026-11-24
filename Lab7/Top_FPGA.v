@@ -1,18 +1,19 @@
 `timescale 1ns / 1ps
 
 ////////////////////////////////////////////////////////////////////////////////
-// ECE369A - Computer Organization (Lab 6)
+// ECE369A - Computer Organization (Lab 7 FPGA Top-Level Wrapper)
 // Group 17
-// Percent Effort: [Noah Kramer]: 33%, [Luke Mccullough]: 33%, [Vasu Kedia]: 33%
+// Percent Effort: Vasu Kedia 33.3%, Noah Kramer 33.3%, Luke Mccullough 33.3%
 //
 // Module - Top_FPGA.v
-// Description - Connects ClkDiv, Top_Datapath, and Two4DigitDisplay to run the
-//               5-stage pipelined MIPS processor on the Nexys A7-100T FPGA.
-//               Top-level port names match Two4DigitDisplay.xdc exactly.
+// Description - Runs vbsme on the pipelined datapath (with hazard detection)
+//               on the Nexys A7-100T and shows the (row, col) of the block
+//               with the current minimum SAD.
 //
-// Display Mapping on the Nexys A7 8-Digit 7-Segment Display:
-//   - Left 4 digits  (NumberB = PC[15:0])        : Current WB Program Counter
-//   - Right 4 digits (NumberA = WriteData[15:0]) : Register File WriteData
+// Display (hexadecimal):
+//   - Left 4 digits  (NumberB) = $v0[15:0] : row of the current minimum SAD
+//   - Right 4 digits (NumberA) = $v1[15:0] : col of the current minimum SAD
+// Starts at (0, 0) and changes every time a block with a smaller SAD is found.
 ////////////////////////////////////////////////////////////////////////////////
 
 module Top_FPGA(
@@ -23,15 +24,15 @@ module Top_FPGA(
 );
 
     wire ClkOut;
-    (* mark_debug = "true" *) wire [31:0] PC;
-    (* mark_debug = "true" *) wire [31:0] WriteData;
+    wire [31:0] PC;
+    wire [31:0] WriteData;
+    wire [31:0] V0;
+    wire [31:0] V1;
 
     // -------------------------------------------------------------------------
-    // 1. Clock Divider (100 MHz -> ~1 Hz slow clock for the datapath)
-    // Note: Rst on ClkDiv is tied to 1'b0 so ClkOut keeps ticking while you
-    // press the physical Reset button (BTNC). Because Top_Datapath and its
-    // pipeline registers use synchronous reset on posedge ClkOut, ClkOut must
-    // keep toggling for Reset to clear the datapath!
+    // 1. Clock Divider (100 MHz -> ~5 kHz with DivVal = 10000)
+    //    Rst tied to 0 so ClkOut keeps running while Reset is held; the
+    //    datapath's pipeline registers reset on a ClkOut edge.
     // -------------------------------------------------------------------------
     ClkDiv ClockDivider (
         .Clk(Clk),
@@ -40,24 +41,24 @@ module Top_FPGA(
     );
 
     // -------------------------------------------------------------------------
-    // 2. 5-Stage Pipelined MIPS Datapath (clocked by slow ClkOut)
+    // 2. 5-Stage Pipelined MIPS Datapath with hazard detection
     // -------------------------------------------------------------------------
     Top_Datapath Datapath (
         .Clk(ClkOut),
         .Rst(Reset),
         .PC(PC),
-        .WriteData(WriteData)
+        .WriteData(WriteData),
+        .V0(V0),
+        .V1(V1)
     );
 
     // -------------------------------------------------------------------------
-    // 3. Two 4-Digit 7-Segment Display (clocked by fast 100 MHz Clk)
-    //    - NumberB (left 4 digits, AN7..AN4)  = PC[15:0]
-    //    - NumberA (right 4 digits, AN3..AN0) = WriteData[15:0]
+    // 3. Display: left = row ($v0), right = col ($v1)
     // -------------------------------------------------------------------------
     Two4DigitDisplay Display (
         .Clk(Clk),
-        .NumberA(WriteData[15:0]),
-        .NumberB(PC[15:0]),
+        .NumberA(V1[15:0]),
+        .NumberB(V0[15:0]),
         .out7(out7),
         .en_out(en_out)
     );

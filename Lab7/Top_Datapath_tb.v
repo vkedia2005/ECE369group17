@@ -1,48 +1,55 @@
 `timescale 1ns / 1ps
 
 ////////////////////////////////////////////////////////////////////////////////
-// ECE369 - Computer Architecture
+// ECE369A - Computer Organization
+// Group 17
+// Percent Effort: Vasu Kedia 33.3%, Noah Kramer 33.3%, Luke Mccullough 33.3%
 //
 // Module - Top_Datapath_tb.v
-// Description - Top-level testbench for the 5-stage pipelined datapath with
-//   hazard detection (Lab 6).
-//   - Generates the clock and a reset pulse.
-//   - Prints PC and WriteData (signed decimal) whenever a new instruction
-//     reaches WB.
-//   - If CHECK = 1, checks every result of lab6_test.s (the program
-//     stores everything it loads, so data_memory.mem contents don't matter):
-//       * wrong WriteData at any PC                    -> FAIL line
-//       * an instruction that should run never shows up -> MISSING line
-//     Set CHECK = 0 when running any other program.
+// Description - Lab 7 testbench: runs vbsme.s (5 test cases) on the pipelined
+//   datapath with hazard detection.
+//   - Prints ($v0, $v1) every time it changes (a new minimum SAD was found).
+//   - When vbsme returns ('doneAll: jr $s7' reaches WB), records the answer.
+//   - Stops when the program reaches 'end_program: j end_program'.
+//   - If CHECK = 1, compares the 5 answers with the expected results.
 //
-// Works for behavioral and post-implementation (post-routing) simulation,
-// since it only uses the top-level ports.
+// Works for behavioral and post-implementation simulation (top-level ports only).
+// The full run is about 3.8 million clock cycles: use "run all".
 ////////////////////////////////////////////////////////////////////////////////
 
 module Top_Datapath_tb();
 
     // ---------------- settings ----------------
-    parameter CLK_PERIOD = 100;   // slow on purpose so post-routing timing is easy to meet
-    parameter NUM_CYCLES = 230;   // two full passes of lab6_test.s (one pass ends at cycle ~110)
-    parameter CHECK      = 1;     // 1 = check against lab6_test.s
+    parameter CLK_PERIOD  = 100;          // ns
+    parameter MAX_CYCLES  = 6000000;      // safety limit (normal run ~3.83 M)
+    parameter CHECK       = 1;            // 1 = check against the 5 template test cases
+    parameter DONEALL_PC  = 32'd316;      // address of 'doneAll: jr $s7'  (line 80 of instruction_memory.mem)
+    parameter END_PC      = 32'd100;      // address of 'end_program: j end_program' (line 26)
+    parameter NUM_TESTS   = 5;
 
     reg         Clk;
     reg         Rst;
     wire [31:0] PC;
     wire [31:0] WriteData;
+    wire [31:0] V0;
+    wire [31:0] V1;
 
     integer cycle  = 0;
+    integer test   = 0;
     integer errors = 0;
-    integer i;
     reg [31:0] lastPC;
-    reg [31:0] lastWD;
-    reg        seen [0:1023];     // which instruction addresses reached WB
+    reg [31:0] lastV0, lastV1;
+
+    reg [31:0] expRow [0:NUM_TESTS-1];
+    reg [31:0] expCol [0:NUM_TESTS-1];
 
     Top_Datapath u0(
         .Clk(Clk),
         .Rst(Rst),
         .PC(PC),
-        .WriteData(WriteData)
+        .WriteData(WriteData),
+        .V0(V0),
+        .V1(V1)
     );
 
     // ---------------- clock ----------------
@@ -51,144 +58,70 @@ module Top_Datapath_tb();
         forever #(CLK_PERIOD/2) Clk = ~Clk;
     end
 
-    // ---------------- expected WriteData for lab6_test.s ----------------
-    // Every PC not listed should write 0. The 'addi $t9, $zero, 99' lines
-    // after taken branches/jumps and at FAIL are listed as 0 on purpose:
-    // if one ever runs it shows 99 and FAILs.
-    function [31:0] expected(input [31:0] pc);
-        case (pc)
-            32'd0:   expected = 32'h00000005; // addi $t0, $zero, 5
-            32'd4:   expected = 32'hfffffff9; // addi $t1, $t0, -12
-            32'd8:   expected = 32'hfffffffe; // add  $t2, $t0, $t1
-            32'd12:  expected = 32'h00000007; // sub  $t3, $t0, $t2
-            32'd16:  expected = 32'hffffffcf; // mul  $t4, $t3, $t1
-            32'd20:  expected = 32'h00000007; // and  $t5, $t4, $t3
-            32'd24:  expected = 32'hffffffff; // or   $t6, $t5, $t1
-            32'd28:  expected = 32'h00000030; // xor  $t7, $t6, $t4
-            32'd32:  expected = 32'h00000001; // nor  $s1, $t7, $t2
-            32'd36:  expected = 32'h00000001; // slt  $s2, $t4, $t1
-            32'd40:  expected = 32'h00000000; // slt  $s3, $t1, $t4
-            32'd44:  expected = 32'h00000300; // sll  $s4, $t7, 4
-            32'd48:  expected = 32'h0000000f; // srl  $s5, $t1, 28
-            32'd52:  expected = 32'h00000001; // slti $s6, $t1, -6
-            32'd56:  expected = 32'h0000ff09; // andi $s7, $t1, 65295
-            32'd60:  expected = 32'h00008007; // ori  $t8, $t3, 32768
-            32'd64:  expected = 32'h000080f8; // xori $t9, $t8, 255
-            32'd68:  expected = 32'h00000040; // addi $s0, $zero, 64
-            32'd72:  expected = 32'h00000000; // sw   $t4, 0($s0)
-            32'd76:  expected = 32'h00000000; // sw   $t9, 4($s0)
-            32'd80:  expected = 32'hffffffcf; // lw   $a0, 0($s0)
-            32'd84:  expected = 32'hffffff9e; // add  $a1, $a0, $a0
-            32'd88:  expected = 32'h00000000; // sh   $a1, 8($s0)
-            32'd92:  expected = 32'h00000000; // sb   $s1, 10($s0)
-            32'd96:  expected = 32'hffffff9e; // lh   $a2, 8($s0)
-            32'd100: expected = 32'h00000001; // lb   $a3, 10($s0)
-            32'd104: expected = 32'hfffffff8; // lb   $v0, 4($s0)
-            32'd108: expected = 32'hffff80f8; // lh   $v1, 4($s0)
-            32'd112: expected = 32'h0001ff9e; // lw   $t0, 8($s0)
-            32'd116: expected = 32'hfffffffd; // addi $t1, $zero, -3
-            32'd120: expected = 32'h00000000; // bltz $t1, L1
-            32'd128: expected = 32'h00000000; // bgez $t1, FAIL
-            32'd132: expected = 32'h00000000; // bgtz $t1, FAIL
-            32'd136: expected = 32'h00000000; // blez $t1, L2
-            32'd144: expected = 32'h00000004; // addi $t2, $zero, 4
-            32'd148: expected = 32'h00000000; // bgtz $t2, L3
-            32'd156: expected = 32'h00000000; // blez $t2, FAIL
-            32'd160: expected = 32'h00000000; // bltz $t2, FAIL
-            32'd164: expected = 32'h00000000; // bgez $t2, L4
-            32'd172: expected = 32'h00000000; // bgez $zero, L5
-            32'd180: expected = 32'hffffffcf; // lw   $t3, 0($s0)
-            32'd184: expected = 32'h00000000; // beq  $t3, $t4, L6
-            32'd192: expected = 32'h00000000; // bne  $t3, $t4, FAIL
-            32'd196: expected = 32'h00000000; // beq  $t3, $zero, FAIL
-            32'd200: expected = 32'h00000000; // bne  $t3, $zero, L7
-            32'd208: expected = 32'h00000000; // j    FWD
-            32'd216: expected = 32'h00000065; // addi $s6, $s6, 100
-            32'd220: expected = 32'h00000000; // j    AFTER
-            32'd228: expected = 32'h00000010; // addi $s5, $s5, 1
-            32'd232: expected = 32'h00000000; // bne  $s5, $zero, BACK
-            32'd240: expected = 32'h000000f4; // jal  FUNC
-            32'd244: expected = 32'h00000017; // addi $s7, $v0, 3
-            32'd248: expected = 32'h00000000; // j    END
-            32'd256: expected = 32'h00000014; // addi $v0, $zero, 20
-            32'd260: expected = 32'h00000000; // jr   $ra
-            32'd268: expected = 32'h00000118; // addi $ra, $zero, 280
-            32'd272: expected = 32'h00000000; // jr   $ra
-            32'd280: expected = 32'h00000000; // j    main
-            default: expected = 32'd0;
-        endcase
-    endfunction
-
-    // PCs of the instructions that must reach WB (every instruction that runs)
-    localparam NUM_MUST = 58;
-    reg [31:0] mustSee [0:NUM_MUST-1];
+    // ---------------- reset and expected values ----------------
     initial begin
-        mustSee[0] = 0; mustSee[1] = 4; mustSee[2] = 8; mustSee[3] = 12;
-        mustSee[4] = 16; mustSee[5] = 20; mustSee[6] = 24; mustSee[7] = 28;
-        mustSee[8] = 32; mustSee[9] = 36; mustSee[10] = 40; mustSee[11] = 44;
-        mustSee[12] = 48; mustSee[13] = 52; mustSee[14] = 56; mustSee[15] = 60;
-        mustSee[16] = 64; mustSee[17] = 68; mustSee[18] = 72; mustSee[19] = 76;
-        mustSee[20] = 80; mustSee[21] = 84; mustSee[22] = 88; mustSee[23] = 92;
-        mustSee[24] = 96; mustSee[25] = 100; mustSee[26] = 104; mustSee[27] = 108;
-        mustSee[28] = 112; mustSee[29] = 116; mustSee[30] = 120; mustSee[31] = 128;
-        mustSee[32] = 132; mustSee[33] = 136; mustSee[34] = 144; mustSee[35] = 148;
-        mustSee[36] = 156; mustSee[37] = 160; mustSee[38] = 164; mustSee[39] = 172;
-        mustSee[40] = 180; mustSee[41] = 184; mustSee[42] = 192; mustSee[43] = 196;
-        mustSee[44] = 200; mustSee[45] = 208; mustSee[46] = 216; mustSee[47] = 220;
-        mustSee[48] = 228; mustSee[49] = 232; mustSee[50] = 240; mustSee[51] = 244;
-        mustSee[52] = 248; mustSee[53] = 256; mustSee[54] = 260; mustSee[55] = 268;
-        mustSee[56] = 272; mustSee[57] = 280;
-    end
+        expRow[0] = 3;  expCol[0] = 2;    // test 1: 16x16 frame, 8x4 window
+        expRow[1] = 16; expCol[1] = 0;    // test 2: 32x32 frame, 8x16 window
+        expRow[2] = 12; expCol[2] = 0;    // test 3: 16x16 frame, 4x8 window
+        expRow[3] = 8;  expCol[3] = 3;    // test 4: 16x16 frame, 8x8 window
+        expRow[4] = 5;  expCol[4] = 16;   // test 5: 32x32 frame, 4x4 window
 
-    // ---------------- reset, run, summary ----------------
-    initial begin
-        for (i = 0; i < 1024; i = i + 1) seen[i] = 1'b0;
         Rst    = 1'b1;
-        lastPC = 32'hFFFFFFFF;          // so the first line always prints
-        lastWD = 32'hFFFFFFFF;
-
-        repeat (3) @(posedge Clk);      // hold reset for 3 cycles
+        lastPC = 32'hFFFFFFFF;
+        lastV0 = 32'hFFFFFFFF;
+        lastV1 = 32'hFFFFFFFF;
+        repeat (3) @(posedge Clk);
         #1 Rst = 1'b0;
-
-        $display("cycle |   PC | WriteData");
-        $display("------+------+-----------");
-
-        repeat (NUM_CYCLES) @(posedge Clk);
-
-        $display("------+------+-----------");
-        if (CHECK) begin
-            for (i = 0; i < NUM_MUST; i = i + 1)
-                if (!seen[mustSee[i][11:2]]) begin
-                    $display("MISSING  PC %0d never reached WB", mustSee[i]);
-                    errors = errors + 1;
-                end
-            if (errors == 0) $display("ALL LAB 6 TEST CHECKS PASSED");
-            else             $display("%0d LAB 6 TEST CHECK(S) FAILED", errors);
-        end
-        $finish;
+        $display("Running vbsme (about 3.8 million cycles)...");
     end
 
-    // ---------------- monitor ----------------
-    // Sample mid-cycle (falling edge) so outputs have settled after the
-    // rising edge. Print when a new instruction reaches WB (PC or value
-    // changes). PC = 0 with WriteData = 0 is skipped: that is the empty
-    // pipeline after reset, a stall bubble, or a flushed instruction.
+    // ---------------- monitor (sample mid-cycle) ----------------
     always @(negedge Clk) begin
         if (!Rst) begin
             cycle = cycle + 1;
-            if ((PC !== lastPC || WriteData !== lastWD) &&
-                !(PC == 32'd0 && WriteData == 32'd0)) begin
-                seen[PC[11:2]] = 1'b1;
-                if (CHECK && WriteData !== expected(PC)) begin
-                    $display("%5d | %4d | %0d   <-- FAIL, expected %0d",
-                             cycle, PC, $signed(WriteData), $signed(expected(PC)));
-                    errors = errors + 1;
-                end else begin
-                    $display("%5d | %4d | %0d", cycle, PC, $signed(WriteData));
-                end
+
+            // new minimum found -> display would change
+            if (V0 !== lastV0 || V1 !== lastV1) begin
+                $display("cycle %8d | display (row, col) = (%0d, %0d)", cycle, V0, V1);
+                lastV0 = V0;
+                lastV1 = V1;
             end
+
+            // vbsme returned: record this test's answer
+            if (PC == DONEALL_PC && lastPC != DONEALL_PC) begin
+                if (CHECK && test < NUM_TESTS) begin
+                    if (V0 === expRow[test] && V1 === expCol[test])
+                        $display(">>> TEST %0d PASS: (%0d, %0d)", test+1, V0, V1);
+                    else begin
+                        $display(">>> TEST %0d FAIL: got (%0d, %0d), expected (%0d, %0d)",
+                                 test+1, V0, V1, expRow[test], expCol[test]);
+                        errors = errors + 1;
+                    end
+                end else
+                    $display(">>> vbsme call %0d returned (%0d, %0d)", test+1, V0, V1);
+                test = test + 1;
+            end
+
+            // program finished
+            if (PC == END_PC && lastPC != END_PC) begin
+                $display("Reached end_program at cycle %0d", cycle);
+                if (CHECK) begin
+                    if (test != NUM_TESTS) begin
+                        $display("Only %0d of %0d tests completed", test, NUM_TESTS);
+                        errors = errors + 1;
+                    end
+                    if (errors == 0) $display("ALL %0d VBSME TESTS PASSED", NUM_TESTS);
+                    else             $display("%0d VBSME CHECK(S) FAILED", errors);
+                end
+                $finish;
+            end
+
+            if (cycle >= MAX_CYCLES) begin
+                $display("TIMEOUT after %0d cycles (PC = %0d, %0d tests done)", cycle, PC, test);
+                $finish;
+            end
+
             lastPC = PC;
-            lastWD = WriteData;
         end
     end
 

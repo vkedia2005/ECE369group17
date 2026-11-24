@@ -4,7 +4,9 @@ module Top_Datapath(
     input         Clk,
     input         Rst,
     output [31:0] PC,
-    output [31:0] WriteData
+    output [31:0] WriteData,
+    output [31:0] V0,           // $v0 = row of the current minimum SAD
+    output [31:0] V1            // $v1 = col of the current minimum SAD
 );
 
     // =========================================================================
@@ -208,7 +210,9 @@ module Top_Datapath(
         .RegWrite(WB_RegWrite),
         .Clk(Clk),
         .ReadData1(ID_ReadData1),
-        .ReadData2(ID_ReadData2)
+        .ReadData2(ID_ReadData2),
+        .V0(V0),
+        .V1(V1)
     );
 
     SignExtension SignExt (
