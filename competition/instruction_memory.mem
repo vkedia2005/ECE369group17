@@ -1,0 +1,95 @@
+201d7ffc	// main: addi $sp, $zero, 32764
+23bdfffc	// addi $sp, $sp, -4
+afbf0000	// sw $ra, 0($sp)
+20040000	// addi $a0, $zero, 0
+20050010	// addi $a1, $zero, 16
+20061010	// addi $a2, $zero, 4112
+0c00000a	// jal vbsme
+8fbf0000	// lw $ra, 0($sp)
+23bd0004	// addi $sp, $sp, 4
+08000009	// exit: j exit
+20020000	// vbsme: addi $v0, $zero, 0
+20030000	// addi $v1, $zero, 0
+03e0b820	// add $s7, $ra, $zero
+8c900000	// lw $s0, 0($a0)
+8c910004	// lw $s1, 4($a0)
+8c920008	// lw $s2, 8($a0)
+8c93000c	// lw $s3, 12($a0)
+02127022	// sub $t6, $s0, $s2
+02338022	// sub $s0, $s1, $s3
+200d0000	// addi $t5, $zero, 0
+20160000	// addi $s6, $zero, 0
+200fffff	// addi $t7, $zero, -1
+000f7842	// srl $t7, $t7, 1
+01cd582a	// layer: slt $t3, $t6, $t5
+15600026	// bne $t3, $zero, doneAll
+0216582a	// slt $t3, $s0, $s6
+15600024	// bne $t3, $zero, doneAll
+01a0a020	// add $s4, $t5, $zero
+02c0a820	// add $s5, $s6, $zero
+0c000040	// goRight: jal checkPos
+22b50001	// addi $s5, $s5, 1
+0215582a	// slt $t3, $s0, $s5
+1160fffc	// beq $t3, $zero, goRight
+0200a820	// add $s5, $s0, $zero
+21b40001	// addi $s4, $t5, 1
+01d4582a	// goDown: slt $t3, $t6, $s4
+15600003	// bne $t3, $zero, doneDown
+0c000040	// jal checkPos
+22940001	// addi $s4, $s4, 1
+08000023	// j goDown
+01ae582a	// doneDown: slt $t3, $t5, $t6
+11600007	// beq $t3, $zero, doneLeft
+01c0a020	// add $s4, $t6, $zero
+2215ffff	// addi $s5, $s0, -1
+02b6582a	// goLeft: slt $t3, $s5, $s6
+15600003	// bne $t3, $zero, doneLeft
+0c000040	// jal checkPos
+22b5ffff	// addi $s5, $s5, -1
+0800002c	// j goLeft
+02d0582a	// doneLeft: slt $t3, $s6, $s0
+11600007	// beq $t3, $zero, shrink
+02c0a820	// add $s5, $s6, $zero
+21d4ffff	// addi $s4, $t6, -1
+01b4582a	// goUp: slt $t3, $t5, $s4
+11600003	// beq $t3, $zero, shrink
+0c000040	// jal checkPos
+2294ffff	// addi $s4, $s4, -1
+08000035	// j goUp
+21ad0001	// shrink: addi $t5, $t5, 1
+21ceffff	// addi $t6, $t6, -1
+22d60001	// addi $s6, $s6, 1
+2210ffff	// addi $s0, $s0, -1
+08000017	// j layer
+02e00008	// doneAll: jr $s7
+20080000	// checkPos: addi $t0, $zero, 0
+20090000	// addi $t1, $zero, 0
+200a0000	// sadRow: addi $t2, $zero, 0
+02895820	// sadCol: add $t3, $s4, $t1
+71715802	// mul $t3, $t3, $s1
+02aa6020	// add $t4, $s5, $t2
+016c5820	// add $t3, $t3, $t4
+000b5880	// sll $t3, $t3, 2
+01655820	// add $t3, $t3, $a1
+8d6b0000	// lw $t3, 0($t3)
+71336002	// mul $t4, $t1, $s3
+018a6020	// add $t4, $t4, $t2
+000c6080	// sll $t4, $t4, 2
+01866020	// add $t4, $t4, $a2
+8d8c0000	// lw $t4, 0($t4)
+016c5822	// sub $t3, $t3, $t4
+05610001	// bgez $t3, sadPos
+000b5822	// sub $t3, $zero, $t3
+010b4020	// sadPos: add $t0, $t0, $t3
+214a0001	// addi $t2, $t2, 1
+0153582a	// slt $t3, $t2, $s3
+1560ffed	// bne $t3, $zero, sadCol
+21290001	// addi $t1, $t1, 1
+0132582a	// slt $t3, $t1, $s2
+1560ffe9	// bne $t3, $zero, sadRow
+010f582a	// slt $t3, $t0, $t7
+11600003	// beq $t3, $zero, notBetter
+01007820	// add $t7, $t0, $zero
+02801020	// add $v0, $s4, $zero
+02a01820	// add $v1, $s5, $zero
+03e00008	// notBetter: jr $ra
