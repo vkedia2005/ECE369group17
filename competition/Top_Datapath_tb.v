@@ -97,12 +97,21 @@ module Top_Datapath_tb();
         $display("    time (ns) |    cycle | (row, col) | min SAD");
     end
 
+    // ---------------- stall / flush counters ----------------
+    // Sampled on the rising edge (the values that held for the whole cycle).
+    // Not on the falling edge: the register file reads on the falling edge, so
+    // Stall/Flush can change at that exact moment and be counted twice.
+    always @(posedge Clk) begin
+        if (!Rst) begin
+            if (Stall === 1'b1) stalls  = stalls  + 1;
+            if (Flush === 1'b1) flushes = flushes + 1;
+        end
+    end
+
     // ---------------- monitor (sampled mid-cycle) ----------------
     always @(negedge Clk) begin
         if (!Rst) begin
             cycle = cycle + 1;
-            if (Stall === 1'b1) stalls  = stalls  + 1;
-            if (Flush === 1'b1) flushes = flushes + 1;
 
             // flow of the current minimum: print every change
             if (V0 !== lastV0 || V1 !== lastV1 || SAD !== lastSAD) begin

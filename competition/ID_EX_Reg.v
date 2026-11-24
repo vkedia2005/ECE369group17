@@ -39,6 +39,7 @@ module ID_EX_Reg(
     input  [31:0] Imm_in,           // sign/zero-extended immediate
     input  [31:0] JumpTarget_in,    // {PC+4[31:28], instr[25:0], 2'b00}
     input  [4:0]  Shamt_in,         // instr[10:6]
+    input  [4:0]  Rs_in,            // instr[25:21]  (Lab 8: needed by the forwarding unit)
     input  [4:0]  Rt_in,            // instr[20:16]
     input  [4:0]  Rd_in,            // instr[15:11]
 
@@ -62,6 +63,7 @@ module ID_EX_Reg(
     output reg [31:0] Imm_out,
     output reg [31:0] JumpTarget_out,
     output reg [4:0]  Shamt_out,
+    output reg [4:0]  Rs_out,
     output reg [4:0]  Rt_out,
     output reg [4:0]  Rd_out
 );
@@ -87,6 +89,7 @@ module ID_EX_Reg(
             Imm_out          <= 32'd0;
             JumpTarget_out   <= 32'd0;
             Shamt_out        <= 5'd0;
+            Rs_out           <= 5'd0;
             Rt_out           <= 5'd0;
             Rd_out           <= 5'd0;
         end else begin
@@ -109,6 +112,7 @@ module ID_EX_Reg(
             Imm_out          <= Imm_in;
             JumpTarget_out   <= JumpTarget_in;
             Shamt_out        <= Shamt_in;
+            Rs_out           <= Rs_in;
             Rt_out           <= Rt_in;
             Rd_out           <= Rd_in;
         end

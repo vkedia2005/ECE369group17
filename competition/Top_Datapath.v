@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 
-module Top_Datapath(
+module Top_Datapath #(
+    parameter ENABLE_FORWARDING = 1     // Lab 8: 0 = original stall-only design (for with/without comparison)
+)(
     input         Clk,
     input         Rst,
     output [31:0] PC,
@@ -75,6 +77,16 @@ module Top_Datapath(
     wire [31:0] EX_Imm;
     wire [31:0] EX_JumpTarget;
     wire [4:0]  EX_Shamt;
+    wire [4:0]  EX_Rs;          // Lab 8: rs number in EX (for forwarding)
+    wire [1:0]  ForwardA;       // Lab 8: source of the rs operand (00 regfile, 10 EX/MEM, 01 MEM/WB)
+    wire [1:0]  ForwardB;       // Lab 8: source of the rt operand
+    wire [31:0] MEM_FwdValue;   // Lab 8: value the instruction in MEM will write back
+    wire [31:0] EX_OperandA;    // Lab 8: rs value after forwarding
+    wire [31:0] EX_OperandB;    // Lab 8: rt value after forwarding
+    wire        ID_FwdRs;       // Lab 8: take rs for the ID branch compare / jr from EX/MEM
+    wire        ID_FwdRt;       // Lab 8: take rt for the ID branch compare from EX/MEM
+    wire [31:0] ID_BrOpA;       // Lab 8: rs value seen by the branch comparator and jr
+    wire [31:0] ID_BrOpB;       // Lab 8: rt value seen by the branch comparator
     wire [4:0]  EX_Rt;
     wire [4:0]  EX_Rd;
 
@@ -122,7 +134,7 @@ module Top_Datapath(
         if (!ControlMux_Stall && ID_Jump)
             NextPC = ID_JumpTarget;     // j / jal resolved in ID
         else if (!ControlMux_Stall && ID_JumpReg)
-            NextPC = ID_ReadData1;      // jr resolved in ID
+            NextPC = ID_BrOpA;          // jr resolved in ID (rs, forwarded if needed)
         else if (!ControlMux_Stall && ID_PCSrc)
             NextPC = ID_BranchTarget;   // taken branch resolved in ID
         else
@@ -188,15 +200,18 @@ module Top_Datapath(
     );
 
     HazardDetectionUnit #(
-        .ENABLE_WB_STALL(0)
+        .ENABLE_WB_STALL(0),
+        .ENABLE_FORWARDING(ENABLE_FORWARDING)   // Lab 8
     ) HDU (
         .Opcode_ID(ID_Instruction[31:26]),
         .Funct_ID(ID_Instruction[5:0]),
         .Rs_ID(ID_Instruction[25:21]),
         .Rt_ID(ID_Instruction[20:16]),
         .EX_RegWrite(EX_RegWrite),
+        .EX_MemRead(EX_MemRead),         // Lab 8: load in EX?
         .EX_WriteReg(EX_WriteReg),
         .MEM_RegWrite(MEM_RegWrite),
+        .MEM_MemRead(MEM_MemRead),       // Lab 8: load in MEM?
         .MEM_WriteReg(MEM_WriteReg),
         .WB_RegWrite(WB_RegWrite),
         .WB_WriteReg(WB_WriteReg),
@@ -238,12 +253,26 @@ module Top_Datapath(
         .Sum(ID_BranchTarget)
     );
 
+    // ---------- Lab 8: forwarding into ID for branches and jr ----------
+    // Branches and jr use their registers in ID, before the forwarding muxes in EX.
+    // If the instruction now in MEM writes the register, use its value (ALU result,
+    // or PC+4 for jal) instead of the stale register-file value.
+    //   - Producer in WB: no forwarding needed, the register file bypass covers it.
+    //   - Producer in EX, or a load in MEM: value not ready yet, the hazard unit stalls.
+    assign ID_FwdRs = ENABLE_FORWARDING && MEM_RegWrite && (MEM_WriteReg != 5'd0) &&
+                      (MEM_WriteReg == ID_Instruction[25:21]);
+    assign ID_FwdRt = ENABLE_FORWARDING && MEM_RegWrite && (MEM_WriteReg != 5'd0) &&
+                      (MEM_WriteReg == ID_Instruction[20:16]);
+
+    assign ID_BrOpA = ID_FwdRs ? MEM_FwdValue : ID_ReadData1;
+    assign ID_BrOpB = ID_FwdRt ? MEM_FwdValue : ID_ReadData2;
+
     // ID-stage branch comparator for beq, bne, bgtz, blez, bgez, bltz
-    wire signed [31:0] ID_SignedRs = ID_ReadData1;
+    wire signed [31:0] ID_SignedRs = ID_BrOpA;
     always @(*) begin
         case (ID_Instruction[31:26])
-            6'b000100: ID_BranchCond = (ID_ReadData1 == ID_ReadData2); // beq
-            6'b000101: ID_BranchCond = (ID_ReadData1 != ID_ReadData2); // bne
+            6'b000100: ID_BranchCond = (ID_BrOpA == ID_BrOpB);         // beq
+            6'b000101: ID_BranchCond = (ID_BrOpA != ID_BrOpB);         // bne
             6'b000111: ID_BranchCond = (ID_SignedRs >  0);             // bgtz
             6'b000110: ID_BranchCond = (ID_SignedRs <= 0);             // blez
             6'b000001: begin                                           // REGIMM
@@ -285,6 +314,7 @@ module Top_Datapath(
         .Imm_in(ID_Imm),
         .JumpTarget_in(ID_JumpTarget),
         .Shamt_in(ID_Instruction[10:6]),
+        .Rs_in(ID_Instruction[25:21]),
         .Rt_in(ID_Instruction[20:16]),
         .Rd_in(ID_Instruction[15:11]),
         // control out
@@ -308,6 +338,7 @@ module Top_Datapath(
         .Imm_out(EX_Imm),
         .JumpTarget_out(EX_JumpTarget),
         .Shamt_out(EX_Shamt),
+        .Rs_out(EX_Rs),
         .Rt_out(EX_Rt),
         .Rd_out(EX_Rd)
     );
@@ -315,16 +346,53 @@ module Top_Datapath(
     // =========================================================================
     // EX STAGE
     // =========================================================================
+
+    // ---------- Lab 8: forwarding ----------
+    // Which stage (if any) should supply rs / rt for the instruction in EX
+    ForwardingUnit #(.ENABLE_FORWARDING(ENABLE_FORWARDING)) FwdUnit (
+        .EX_Rs(EX_Rs),
+        .EX_Rt(EX_Rt),
+        .MEM_RegWrite(MEM_RegWrite),
+        .MEM_WriteReg(MEM_WriteReg),
+        .WB_RegWrite(WB_RegWrite),
+        .WB_WriteReg(WB_WriteReg),
+        .ForwardA(ForwardA),
+        .ForwardB(ForwardB)
+    );
+
+    // What the instruction in MEM will write back: its ALU result, or PC+4 for jal.
+    // (A load in MEM is never forwarded from here: the hazard unit stalls it.)
+    assign MEM_FwdValue = (MEM_MemToReg == 2'b10) ? MEM_PCPlus4 : MEM_ALUResult;
+
+    // rs operand: 00 = register file, 01 = MEM/WB, 10 = EX/MEM
+    Mux32Bit3To1 FwdMuxA (
+        .out(EX_OperandA),
+        .inA(EX_ReadData1),       // 00: value read in ID
+        .inB(WB_WriteData),       // 01: from MEM/WB (final value: ALU, load data or PC+4)
+        .inC(MEM_FwdValue),       // 10: from EX/MEM
+        .sel(ForwardA)
+    );
+
+    // rt operand: same choices
+    Mux32Bit3To1 FwdMuxB (
+        .out(EX_OperandB),
+        .inA(EX_ReadData2),
+        .inB(WB_WriteData),
+        .inC(MEM_FwdValue),
+        .sel(ForwardB)
+    );
+
+    // ---------- ALU inputs (now fed by the forwarded operands) ----------
     Mux32Bit2To1 ALUAMux (
         .out(EX_ALUInA),
-        .inA(EX_ReadData1),
-        .inB(EX_ReadData2),
+        .inA(EX_OperandA),        // rs (forwarded)
+        .inB(EX_OperandB),        // rt (forwarded), for sll/srl
         .sel(EX_Shift)
     );
 
     Mux32Bit2To1 ALUSrcMux (
         .out(EX_RegOrImm),
-        .inA(EX_ReadData2),
+        .inA(EX_OperandB),        // rt (forwarded)
         .inB(EX_Imm),
         .sel(EX_ALUSrc)
     );
@@ -371,10 +439,10 @@ module Top_Datapath(
         .PCPlus4_in(EX_PCPlus4),
         .BranchTarget_in(32'd0),
         .JumpTarget_in(EX_JumpTarget),
-        .ReadData1_in(EX_ReadData1),
+        .ReadData1_in(EX_OperandA),     // Lab 8: forwarded rs
         .ALUResult_in(EX_ALUResult),
         .Zero_in(EX_Zero),
-        .WriteData_in(EX_ReadData2),
+        .WriteData_in(EX_OperandB),     // Lab 8: forwarded rt = store data for sw/sh/sb
         .WriteReg_in(EX_WriteReg),
         .RegWrite_out(MEM_RegWrite),
         .MemToReg_out(MEM_MemToReg),
